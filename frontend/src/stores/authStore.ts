@@ -2,7 +2,10 @@ import { create } from 'zustand'
 
 type AuthUser = {
   id: string
+  name: string | null
   email: string | null
+  photoUrl: string | null
+  role: 'student' | 'teacher' | 'admin'
 }
 
 type AuthState = {

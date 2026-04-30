@@ -5,6 +5,7 @@ import { validateEnv, PORT, FRONTEND_ORIGIN } from './config/env'
 import gradesRouter from './routes/grades'
 import modulesRouter from './routes/modules'
 import unitsRouter from './routes/units'
+import adminResourcesRouter from './routes/adminResources'
 
 dotenv.config()
 validateEnv()
@@ -26,6 +27,7 @@ app.get('/health', (req, res) => {
 app.use('/api/grades', gradesRouter)
 app.use('/api/modules', modulesRouter)
 app.use('/api/units', unitsRouter)
+app.use('/api/admin/resources', adminResourcesRouter)
 
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console

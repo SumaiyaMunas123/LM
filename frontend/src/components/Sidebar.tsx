@@ -1,17 +1,19 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, Users, Settings, CircleUserRound } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Users, UserCircle2, Sparkles } from 'lucide-react'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/learning', label: 'Learning', icon: <BookOpen size={18} /> },
   { to: '/teachers', label: 'Teachers', icon: <Users size={18} /> },
-  { to: '/admin', label: 'Admin', icon: <Settings size={18} /> },
+  { to: '/profile', label: 'Profile', icon: <UserCircle2 size={18} /> },
 ]
 
 export default function Sidebar({
+  name,
   email,
   onSignOut,
 }: {
+  name: string
   email: string
   onSignOut: () => void
 }) {
@@ -20,14 +22,11 @@ export default function Sidebar({
       <div>
         <div className="card-row" style={{ marginBottom: 12 }}>
           <div className="sidebar-brand" aria-hidden="true">
-            <CircleUserRound size={20} />
+            <Sparkles size={18} />
           </div>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 600 }}>EduPath</div>
-            <p className="sidebar-copy" style={{ margin: '2px 0 0' }}>
-              Quiet, structured learning workspace.
-            </p>
-          </div>
+        </div>
+        <div className="empty-state" style={{ padding: 12, marginBottom: 12 }}>
+          <p className="muted" style={{ margin: 0 }}>No learning path selected yet.</p>
         </div>
       </div>
       <nav className="nav-list sidebar-nav" aria-label="Primary">
@@ -44,7 +43,8 @@ export default function Sidebar({
       </nav>
       <div className="sidebar-footer">
         <div>
-          <p className="sidebar-label">Signed in as</p>
+          <p className="sidebar-label">Student</p>
+          <p className="sidebar-user" style={{ fontWeight: 600 }}>{name}</p>
           <p className="sidebar-user">{email}</p>
         </div>
         <button className="ghost-button full-width" onClick={onSignOut}>
