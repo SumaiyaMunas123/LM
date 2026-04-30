@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
+import { apiPost } from '../api/client'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
 import BottomTabBar from '../components/BottomTabBar'
@@ -260,8 +261,22 @@ function allTeacherCards() {
 
 function useAuthBootstrap() {
   const setSession = useAuthStore((state) => state.setSession)
+  const setUser = useAuthStore((state) => state.setUser)
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const [ready, setReady] = useState(false)
+
+  const syncProfileRole = async (userId: string) => {
+    const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single()
+    if (error || !data?.role) return
+
+    const current = useAuthStore.getState().user
+    if (!current) return
+    if (data.role === 'admin' || data.role === 'teacher' || data.role === 'student') {
+      if (current.role !== data.role) {
+        setUser({ ...current, role: data.role })
+      }
+    }
+  }
 
   useEffect(() => {
     let mounted = true
@@ -274,13 +289,19 @@ function useAuthBootstrap() {
       const { data } = await supabase.auth.getSession()
       if (!mounted) return
       setSession(data.session)
+      if (data.session?.user?.id) {
+        await syncProfileRole(data.session.user.id)
+      }
       setReady(true)
     }
 
     void run()
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setSession(session)
+      if (session) {
+        setSession(session)
+        void syncProfileRole(session.user.id)
+      }
       else clearAuth()
     })
 
@@ -288,7 +309,7 @@ function useAuthBootstrap() {
       mounted = false
       data.subscription.unsubscribe()
     }
-  }, [clearAuth, setSession])
+  }, [clearAuth, setSession, setUser])
 
   return ready
 }
@@ -307,6 +328,14 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   return children
 }
 
+function AdminRoute({ children }: { children: JSX.Element }) {
+  const token = useAuthStore((state) => state.token)
+  const user = useAuthStore((state) => state.user)
+  if (!token) return <Navigate to="/login" replace />
+  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />
+  return children
+}
+
 function AppShell({ title, children }: { title: string; children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
@@ -320,7 +349,12 @@ function AppShell({ title, children }: { title: string; children: React.ReactNod
 
   return (
     <div className="app-page">
-      <Sidebar name={user?.name ?? 'Student'} email={user?.email ?? 'student@example.com'} onSignOut={signOut} />
+      <Sidebar
+        name={user?.name ?? 'Student'}
+        email={user?.email ?? 'student@example.com'}
+        role={user?.role ?? 'student'}
+        onSignOut={signOut}
+      />
       <div className="main-column">
         <Topbar title={title} />
         <main className="app-main">{children}</main>
@@ -825,6 +859,156 @@ function ProfilePage() {
   )
 }
 
+type InitiateUploadResponse = {
+  ok: boolean
+  upload: {
+    path: string
+    token: string
+    signedUrl: string
+  }
+}
+
+type CompleteUploadResponse = {
+  ok: boolean
+  resource: {
+    id: string
+    title: string
+  }
+}
+
+function AdminUploadPage() {
+  const token = useAuthStore((state) => state.token)
+  const [file, setFile] = useState<File | null>(null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [unitId, setUnitId] = useState('')
+  const [kind, setKind] = useState<ResourceKind>('video')
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const onSubmit = async () => {
+    if (!token) {
+      setError('Missing auth token. Please sign in again.')
+      return
+    }
+    if (!file) {
+      setError('Please select a file first.')
+      return
+    }
+
+    setUploading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const initiate = await apiPost<InitiateUploadResponse>('/api/admin/resources/upload/initiate', {
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        unit_id: unitId || null,
+        title: title || file.name,
+        description: description || null,
+        kind,
+        display_order: 0,
+      }, token)
+
+      const uploadResponse = await fetch(initiate.upload.signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+        },
+        body: file,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('Direct upload to storage failed')
+      }
+
+      const complete = await apiPost<CompleteUploadResponse>('/api/admin/resources/upload/complete', {
+        path: initiate.upload.path,
+        unit_id: unitId || null,
+        title: title || file.name,
+        description: description || null,
+        kind,
+        display_order: 0,
+        mime: file.type || null,
+        size: file.size,
+      }, token)
+
+      setMessage(`Upload complete. Resource created: ${complete.resource.title}`)
+      setFile(null)
+      setTitle('')
+      setDescription('')
+      setUnitId('')
+      const input = document.getElementById('admin-upload-file') as HTMLInputElement | null
+      if (input) input.value = ''
+    } catch (uploadErr) {
+      setError(uploadErr instanceof Error ? uploadErr.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <AppShell title="Admin Upload">
+      <section className="page-card" style={{ maxWidth: 760 }}>
+        <h2 style={{ marginBottom: 8 }}>Upload Learning Resource</h2>
+        <p className="muted" style={{ marginTop: 0 }}>This page is restricted to admin accounts.</p>
+
+        <div className="field-stack" style={{ marginTop: 14 }}>
+          <label className="field-stack">
+            <span className="sidebar-label">File</span>
+            <input
+              id="admin-upload-file"
+              type="file"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+
+          <label className="field-stack">
+            <span className="sidebar-label">Title</span>
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Lesson title" />
+          </label>
+
+          <label className="field-stack">
+            <span className="sidebar-label">Description</span>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Short description"
+              rows={4}
+            />
+          </label>
+
+          <label className="field-stack">
+            <span className="sidebar-label">Unit ID</span>
+            <input value={unitId} onChange={(event) => setUnitId(event.target.value)} placeholder="Optional unit UUID" />
+          </label>
+
+          <label className="field-stack">
+            <span className="sidebar-label">Kind</span>
+            <select value={kind} onChange={(event) => setKind(event.target.value as ResourceKind)}>
+              <option value="video">Video</option>
+              <option value="tute">Tute</option>
+              <option value="paper">Paper</option>
+            </select>
+          </label>
+        </div>
+
+        {error ? <p className="error">{error}</p> : null}
+        {message ? <p className="muted" style={{ color: 'var(--success)' }}>{message}</p> : null}
+
+        <div className="toolbar-row" style={{ marginTop: 16 }}>
+          <button className="primary-button" type="button" disabled={uploading} onClick={onSubmit}>
+            {uploading ? 'Uploading...' : 'Start Upload'}
+          </button>
+        </div>
+      </section>
+    </AppShell>
+  )
+}
+
 function NotFoundPage() {
   return (
     <div className="auth-shell">
@@ -855,6 +1039,7 @@ export default function AppRouter() {
       <Route path="/grades/:gradeId/modules/:moduleId/units/:unitId" element={<ProtectedRoute><UnitPage /></ProtectedRoute>} />
       <Route path="/resource/:resourceId" element={<ProtectedRoute><ResourceViewerPage /></ProtectedRoute>} />
       <Route path="/teachers" element={<ProtectedRoute><TeachersPage /></ProtectedRoute>} />
+      <Route path="/admin/upload" element={<AdminRoute><AdminUploadPage /></AdminRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

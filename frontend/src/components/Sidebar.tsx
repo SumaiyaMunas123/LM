@@ -1,22 +1,36 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, BookOpen, Users, UserCircle2, Sparkles } from 'lucide-react'
 
-const nav = [
-  { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { to: '/learning', label: 'Learning', icon: <BookOpen size={18} /> },
-  { to: '/teachers', label: 'Teachers', icon: <Users size={18} /> },
-  { to: '/profile', label: 'Profile', icon: <UserCircle2 size={18} /> },
-]
+type UserRole = 'student' | 'teacher' | 'admin'
+
+function getNav(role: UserRole) {
+  const nav = [
+    { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+    { to: '/learning', label: 'Learning', icon: <BookOpen size={18} /> },
+    { to: '/teachers', label: 'Teachers', icon: <Users size={18} /> },
+    { to: '/profile', label: 'Profile', icon: <UserCircle2 size={18} /> },
+  ]
+
+  if (role === 'admin') {
+    nav.splice(3, 0, { to: '/admin/upload', label: 'Admin Upload', icon: <Sparkles size={18} /> })
+  }
+
+  return nav
+}
 
 export default function Sidebar({
   name,
   email,
+  role,
   onSignOut,
 }: {
   name: string
   email: string
+  role: UserRole
   onSignOut: () => void
 }) {
+  const nav = getNav(role)
+
   return (
     <aside className="sidebar app-sidebar">
       <div>
@@ -43,7 +57,7 @@ export default function Sidebar({
       </nav>
       <div className="sidebar-footer">
         <div>
-          <p className="sidebar-label">Student</p>
+          <p className="sidebar-label">{role}</p>
           <p className="sidebar-user" style={{ fontWeight: 600 }}>{name}</p>
           <p className="sidebar-user">{email}</p>
         </div>

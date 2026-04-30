@@ -5,6 +5,11 @@ backend/node_modules/
 .env.local
 dist/
 build/
+frontend/dist/
+backend/dist/
+frontend/.vite/
+backend/.ts-node-dev/
+coverage/
 *.log
 /.parcel-cache
 /.turbo

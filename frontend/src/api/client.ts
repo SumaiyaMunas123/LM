@@ -15,3 +15,21 @@ export async function apiGet<T>(path: string, token?: string) {
 
   return response.json() as Promise<T>
 }
+
+export async function apiPost<TResponse, TBody = Record<string, unknown>>(path: string, body: TBody, token?: string) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || 'Request failed')
+  }
+
+  return response.json() as Promise<TResponse>
+}

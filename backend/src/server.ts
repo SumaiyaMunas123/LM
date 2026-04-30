@@ -6,6 +6,8 @@ import gradesRouter from './routes/grades'
 import modulesRouter from './routes/modules'
 import unitsRouter from './routes/units'
 import adminResourcesRouter from './routes/adminResources'
+import resourcesRouter from './routes/resources'
+import teachersRouter from './routes/teachers'
 
 dotenv.config()
 validateEnv()
@@ -28,6 +30,8 @@ app.use('/api/grades', gradesRouter)
 app.use('/api/modules', modulesRouter)
 app.use('/api/units', unitsRouter)
 app.use('/api/admin/resources', adminResourcesRouter)
+app.use('/api/resources', resourcesRouter)
+app.use('/api/teachers', teachersRouter)
 
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console

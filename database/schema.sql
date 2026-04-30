@@ -68,12 +68,22 @@ create table if not exists public.resources (
   description text,
   external_url text,
   storage_path text,
+  mime text,
+  size bigint,
+  status text not null default 'uploaded',
+  uploaded_by uuid references public.profiles(id) on delete set null,
   thumbnail_path text,
   duration_seconds integer,
   display_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.resources
+  add column if not exists mime text,
+  add column if not exists size bigint,
+  add column if not exists status text not null default 'uploaded',
+  add column if not exists uploaded_by uuid references public.profiles(id) on delete set null;
 
 create table if not exists public.teacher_modules (
   teacher_id uuid not null references public.profiles(id) on delete cascade,

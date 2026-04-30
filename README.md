@@ -90,8 +90,28 @@ The backend serves JSON APIs and a health check endpoint at `GET /health`.
 - `GET /api/units?moduleId=...`
 - `GET /api/units/:unitId/resources`
 - `POST /api/admin/resources/upload`
+- `POST /api/admin/resources/upload/initiate`
+- `POST /api/admin/resources/upload/complete`
+- `GET /api/admin/resources?unit_id=...&kind=...&status=...`
+- `GET /api/admin/resources/:id`
+- `PUT /api/admin/resources/:id`
+- `DELETE /api/admin/resources/:id`
+- `GET /api/resources/:id/url?expiresIn=3600`
+- `GET /api/resources/:id`
+- `GET /api/teachers`
+- `GET /api/teachers/:id`
+- `POST /api/teachers`
+- `POST /api/teachers/:teacherId/assign/:moduleId`
+- `DELETE /api/teachers/:teacherId/assign/:moduleId`
 
-The upload endpoint accepts `multipart/form-data` with a `file` field and stores the file in Supabase Storage before creating a resource record.
+The upload endpoints support both:
+
+- direct server-side multipart upload (`/api/admin/resources/upload`)
+- presigned browser-to-storage upload via initiate/complete endpoints
+
+Resource URLs are served via signed links (1-hour expiry by default) for secure playback/download.
+
+Teachers can be created and assigned to modules by admins.
 
 ## Frontend Setup
 
@@ -105,14 +125,15 @@ The frontend expects the backend API and Supabase auth configuration to be avail
 
 ## Resource Upload Flow
 
-The current backend supports direct server-side upload for admin users:
+For admin/developer uploads, the backend supports presigned direct upload:
 
-1. Admin submits a file using `multipart/form-data`.
-2. The backend verifies the bearer token.
-3. The file is stored in the Supabase bucket.
-4. A `resources` record is created with metadata such as title, type, size, and storage path.
+1. Call `POST /api/admin/resources/upload/initiate` with `fileName` and metadata.
+2. Receive a signed upload token/URL and storage path.
+3. Upload the file directly from frontend to Supabase Storage.
+4. Call `POST /api/admin/resources/upload/complete` with the path and metadata.
+5. Backend verifies the object exists and creates the `resources` row.
 
-This structure is ready for a future direct-upload or presigned-upload flow if you want browser-to-storage uploads for large videos.
+The server-side multipart upload endpoint remains available as a fallback path.
 
 ## Notes for Local Development
 
